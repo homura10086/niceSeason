@@ -11,7 +11,7 @@
     <groupId>io.niceseason</groupId>
     <artifactId>gulimall-auth-server</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>gulimall-auto-server</name>
+    <name>gulimall-auth-server</name>
     <description>认证中心(社交登录）</description>
 
     <properties>

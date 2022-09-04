@@ -34,22 +34,24 @@ public class CartServiceImpl implements CartService {
     @Autowired
     private ThreadPoolExecutor executor;
 
+//    若当前商品已经存在购物车，只需增添数量
+//    否则需要查询商品购物项所需信息，并添加新商品至购物车
     @Override
     public CartItemVo addCartItem(Long skuId, Integer num) {
         BoundHashOperations<String, Object, Object> ops = getCartItemOps();
         // 判断当前商品是否已经存在购物车
         String cartJson = (String) ops.get(skuId.toString());
         // 1 已经存在购物车，将数据取出并添加商品数量
+        CartItemVo cartItemVo;
         if (!StringUtils.isEmpty(cartJson)) {
             //1.1 将json转为对象并将count+
-            CartItemVo cartItemVo = JSON.parseObject(cartJson, CartItemVo.class);
+            cartItemVo = JSON.parseObject(cartJson, CartItemVo.class);
             cartItemVo.setCount(cartItemVo.getCount() + num);
             //1.2 将更新后的对象转为json并存入redis
             String jsonString = JSON.toJSONString(cartItemVo);
             ops.put(skuId.toString(), jsonString);
-            return cartItemVo;
         } else {
-            CartItemVo cartItemVo = new CartItemVo();
+            cartItemVo = new CartItemVo();
             // 2 未存在购物车，则添加新商品
             CompletableFuture<Void> future1 = CompletableFuture.runAsync(() -> {
                 //2.1 远程查询sku基本信息
@@ -72,16 +74,14 @@ public class CartServiceImpl implements CartService {
 
             try {
                 CompletableFuture.allOf(future1, future2).get();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            } catch (ExecutionException e) {
+            } catch (InterruptedException | ExecutionException e) {
                 e.printStackTrace();
             }
             //2.3 将该属性封装并存入redis,登录用户使用userId为key,否则使用user-key
             String toJSONString = JSON.toJSONString(cartItemVo);
             ops.put(skuId.toString(), toJSONString);
-            return cartItemVo;
         }
+        return cartItemVo;
     }
 
     @Override
@@ -99,16 +99,16 @@ public class CartServiceImpl implements CartService {
         //1 用户未登录，直接通过user-key获取临时购物车
         List<CartItemVo> tempCart = getCartByKey(userInfoTo.getUserKey());
         if (StringUtils.isEmpty(userInfoTo.getUserId())) {
-            List<CartItemVo> cartItemVos = tempCart;
-            cartVo.setItems(cartItemVos);
+            cartVo.setItems(tempCart);
         }else {
             //2 用户登录
             //2.1 查询userId对应的购物车
             List<CartItemVo> userCart = getCartByKey(userInfoTo.getUserId().toString());
             //2.2 查询user-key对应的临时购物车，并和用户购物车合并
-            if (tempCart!=null&&tempCart.size()>0){
-                BoundHashOperations<String, Object, Object> ops = redisTemplate.boundHashOps(CartConstant.CART_PREFIX + userInfoTo.getUserId());
+            if (tempCart != null && tempCart.size() > 0){
+                redisTemplate.boundHashOps(CartConstant.CART_PREFIX + userInfoTo.getUserId());
                 for (CartItemVo cartItemVo : tempCart) {
+                    assert userCart != null;
                     userCart.add(cartItemVo);
                     //2.3 在redis中更新数据
                     addCartItem(cartItemVo.getSkuId(), cartItemVo.getCount());
@@ -122,13 +122,15 @@ public class CartServiceImpl implements CartService {
         return cartVo;
     }
 
+    //修改skuId对应购物车项的选中状态
     @Override
     public void checkCart(Long skuId, Integer isChecked) {
         BoundHashOperations<String, Object, Object> ops = getCartItemOps();
         String cartJson = (String) ops.get(skuId.toString());
         CartItemVo cartItemVo = JSON.parseObject(cartJson, CartItemVo.class);
-        cartItemVo.setCheck(isChecked==1);
-        ops.put(skuId.toString(),JSON.toJSONString(cartItemVo));
+        assert cartItemVo != null;
+        cartItemVo.setCheck(isChecked == 1);
+        ops.put(skuId.toString(), JSON.toJSONString(cartItemVo));
     }
 
     @Override
@@ -136,8 +138,9 @@ public class CartServiceImpl implements CartService {
         BoundHashOperations<String, Object, Object> ops = getCartItemOps();
         String cartJson = (String) ops.get(skuId.toString());
         CartItemVo cartItemVo = JSON.parseObject(cartJson, CartItemVo.class);
+        assert cartItemVo != null;
         cartItemVo.setCount(num);
-        ops.put(skuId.toString(),JSON.toJSONString(cartItemVo));
+        ops.put(skuId.toString(), JSON.toJSONString(cartItemVo));
     }
 
     @Override
@@ -150,6 +153,7 @@ public class CartServiceImpl implements CartService {
     public List<CartItemVo> getCheckedItems() {
         UserInfoTo userInfoTo = CartInterceptor.threadLocal.get();
         List<CartItemVo> cartByKey = getCartByKey(userInfoTo.getUserId().toString());
+        assert cartByKey != null;
         return cartByKey.stream().filter(CartItemVo::getCheck).collect(Collectors.toList());
     }
 

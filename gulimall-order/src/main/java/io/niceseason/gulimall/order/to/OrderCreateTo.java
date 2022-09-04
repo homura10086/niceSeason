@@ -7,6 +7,8 @@ import lombok.Data;
 import java.math.BigDecimal;
 import java.util.List;
 
+//创建订单、订单项
+// 抽取模型
 @Data
 public class OrderCreateTo {
 

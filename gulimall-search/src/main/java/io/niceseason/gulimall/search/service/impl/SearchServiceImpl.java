@@ -12,16 +12,16 @@ import io.niceseason.gulimall.search.vo.AttrResponseVo;
 import io.niceseason.gulimall.search.vo.SearchParam;
 import io.niceseason.gulimall.search.vo.SearchResult;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.lucene.index.Term;
 import org.apache.lucene.search.join.ScoreMode;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.common.text.Text;
-import org.elasticsearch.index.query.*;
+import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.NestedQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.index.query.RangeQueryBuilder;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
-import org.elasticsearch.search.aggregations.Aggregation;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.Aggregations;
 import org.elasticsearch.search.aggregations.bucket.nested.NestedAggregationBuilder;
@@ -55,21 +55,24 @@ public class SearchServiceImpl implements SearchService {
     @Override
     public SearchResult getSearchResult(SearchParam searchParam) {
         SearchResult searchResult= null;
+        //通过请求参数构建查询请求
         SearchRequest request = bulidSearchRequest(searchParam);
         try {
             SearchResponse searchResponse = restHighLevelClient.search(request, GulimallElasticSearchConfig.COMMON_OPTIONS);
-            searchResult = bulidSearchResult(searchParam,searchResponse);
+            //将es响应数据封装成结果
+            searchResult = bulidSearchResult(searchParam, searchResponse);
         } catch (IOException e) {
             e.printStackTrace();
         }
         return searchResult;
     }
 
+    // 封装响应结果
     private SearchResult bulidSearchResult(SearchParam searchParam, SearchResponse searchResponse) {
         SearchResult result = new SearchResult();
         SearchHits hits = searchResponse.getHits();
         //1. 封装查询到的商品信息
-        if (hits.getHits()!=null&&hits.getHits().length>0){
+        if (hits.getHits() != null && hits.getHits().length > 0){
             List<SkuEsModel> skuEsModels = new ArrayList<>();
             for (SearchHit hit : hits) {
                 String sourceAsString = hit.getSourceAsString();
@@ -92,7 +95,7 @@ public class SearchServiceImpl implements SearchService {
         long total = hits.getTotalHits().value;
         result.setTotal(total);
         //2.3 总页码
-        Integer totalPages = (int)total % EsConstant.PRODUCT_PAGESIZE == 0 ?
+        int totalPages = (int)total % EsConstant.PRODUCT_PAGESIZE == 0 ?
                 (int)total / EsConstant.PRODUCT_PAGESIZE : (int)total / EsConstant.PRODUCT_PAGESIZE + 1;
         result.setTotalPages(totalPages);
         List<Integer> pageNavs = new ArrayList<>();
@@ -112,10 +115,10 @@ public class SearchServiceImpl implements SearchService {
 
             Aggregations subBrandAggs = bucket.getAggregations();
             //3.2 得到品牌图片
-            ParsedStringTerms brandImgAgg=subBrandAggs.get("brandImgAgg");
+            ParsedStringTerms brandImgAgg = subBrandAggs.get("brandImgAgg");
             String brandImg = brandImgAgg.getBuckets().get(0).getKeyAsString();
             //3.3 得到品牌名字
-            Terms brandNameAgg=subBrandAggs.get("brandNameAgg");
+            Terms brandNameAgg = subBrandAggs.get("brandNameAgg");
             String brandName = brandNameAgg.getBuckets().get(0).getKeyAsString();
             SearchResult.BrandVo brandVo = new SearchResult.BrandVo(brandId, brandName, brandImg);
             brandVos.add(brandVo);
@@ -130,7 +133,7 @@ public class SearchServiceImpl implements SearchService {
             Long catalogId = bucket.getKeyAsNumber().longValue();
             Aggregations subcatalogAggs = bucket.getAggregations();
             //4.2 获取分类名
-            ParsedStringTerms catalogNameAgg=subcatalogAggs.get("catalogNameAgg");
+            ParsedStringTerms catalogNameAgg = subcatalogAggs.get("catalogNameAgg");
             String catalogName = catalogNameAgg.getBuckets().get(0).getKeyAsString();
             SearchResult.CatalogVo catalogVo = new SearchResult.CatalogVo(catalogId, catalogName);
             catalogVos.add(catalogVo);
@@ -140,15 +143,15 @@ public class SearchServiceImpl implements SearchService {
         //5 查询涉及到的所有属性
         List<SearchResult.AttrVo> attrVos = new ArrayList<>();
         //ParsedNested用于接收内置属性的聚合
-        ParsedNested parsedNested=aggregations.get("attrs");
-        ParsedLongTerms attrIdAgg=parsedNested.getAggregations().get("attrIdAgg");
+        ParsedNested parsedNested = aggregations.get("attrs");
+        ParsedLongTerms attrIdAgg = parsedNested.getAggregations().get("attrIdAgg");
         for (Terms.Bucket bucket : attrIdAgg.getBuckets()) {
             //5.1 查询属性id
             Long attrId = bucket.getKeyAsNumber().longValue();
 
             Aggregations subAttrAgg = bucket.getAggregations();
             //5.2 查询属性名
-            ParsedStringTerms attrNameAgg=subAttrAgg.get("attrNameAgg");
+            ParsedStringTerms attrNameAgg = subAttrAgg.get("attrNameAgg");
             String attrName = attrNameAgg.getBuckets().get(0).getKeyAsString();
             //5.3 查询属性值
             ParsedStringTerms attrValueAgg = subAttrAgg.get("attrValueAgg");
@@ -156,7 +159,6 @@ public class SearchServiceImpl implements SearchService {
             for (Terms.Bucket attrValueAggBucket : attrValueAgg.getBuckets()) {
                 String attrValue = attrValueAggBucket.getKeyAsString();
                 attrValues.add(attrValue);
-                List<SearchResult.NavVo> navVos = new ArrayList<>();
             }
             SearchResult.AttrVo attrVo = new SearchResult.AttrVo(attrId, attrName, attrValues);
             attrVos.add(attrVo);
@@ -175,8 +177,8 @@ public class SearchServiceImpl implements SearchService {
                 try {
                     R r = productFeignService.info(Long.parseLong(split[0]));
                     if (r.getCode() == 0) {
-                        AttrResponseVo attrResponseVo = JSON.parseObject(JSON.toJSONString(r.get("attr")), new TypeReference<AttrResponseVo>() {
-                        });
+                        AttrResponseVo attrResponseVo = JSON.parseObject(JSON.toJSONString(r.get("attr")),
+                                new TypeReference<AttrResponseVo>() {});
                         navVo.setNavName(attrResponseVo.getAttrName());
                     }
                 } catch (Exception e) {
@@ -184,8 +186,9 @@ public class SearchServiceImpl implements SearchService {
                 }
                 //6.3 设置面包屑跳转链接
                 String queryString = searchParam.get_queryString();
-                String replace = queryString.replace("&attrs=" + attr, "").replace("attrs=" + attr+"&", "").replace("attrs=" + attr, "");
-                navVo.setLink("http://search.gulimall.com/search.html" + (replace.isEmpty()?"":"?"+replace));
+                String replace = queryString.replace("&attrs=" + attr, "").replace(
+                        "attrs=" + attr+"&", "").replace("attrs=" + attr, "");
+                navVo.setLink("https://search.gulimall.com/search.html" + (replace.isEmpty() ? "" : "?" + replace));
                 return navVo;
             }).collect(Collectors.toList());
             result.setNavs(navVos);
@@ -194,6 +197,7 @@ public class SearchServiceImpl implements SearchService {
     }
 
 
+    // 构建查询条件,将每个条件封装进请求中
     private SearchRequest bulidSearchRequest(SearchParam searchParam) {
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         //1. 构建bool query
@@ -205,12 +209,12 @@ public class SearchServiceImpl implements SearchService {
 
         //1.2 bool filter
         //1.2.1 catalog
-        if (searchParam.getCatalog3Id()!=null){
+        if (searchParam.getCatalog3Id() != null){
             boolQueryBuilder.filter(QueryBuilders.termQuery("catalogId", searchParam.getCatalog3Id()));
         }
         //1.2.2 brand
-        if (searchParam.getBrandId()!=null&&searchParam.getBrandId().size()>0) {
-            boolQueryBuilder.filter(QueryBuilders.termsQuery("brandId",searchParam.getBrandId()));
+        if (searchParam.getBrandId() !=null && searchParam.getBrandId().size() > 0) {
+            boolQueryBuilder.filter(QueryBuilders.termsQuery("brandId", searchParam.getBrandId()));
         }
         //1.2.3 hasStock
         if (searchParam.getHasStock() != null) {
@@ -239,8 +243,8 @@ public class SearchServiceImpl implements SearchService {
         //attrs=1_5寸:8寸&2_16G:8G
         List<String> attrs = searchParam.getAttrs();
         BoolQueryBuilder queryBuilder = new BoolQueryBuilder();
-        if (attrs!=null&&attrs.size() > 0) {
-            attrs.forEach(attr->{
+        if (attrs !=null && attrs.size() > 0) {
+            attrs.forEach(attr -> {
                 String[] attrSplit = attr.split("_");
                 queryBuilder.must(QueryBuilders.termQuery("attrs.attrId", attrSplit[0]));
                 String[] attrValues = attrSplit[1].split(":");
@@ -255,7 +259,8 @@ public class SearchServiceImpl implements SearchService {
         //2. sort  eg:sort=saleCount_desc/asc
         if (!StringUtils.isEmpty(searchParam.getSort())) {
             String[] sortSplit = searchParam.getSort().split("_");
-            searchSourceBuilder.sort(sortSplit[0], sortSplit[1].equalsIgnoreCase("asc") ? SortOrder.ASC : SortOrder.DESC);
+            searchSourceBuilder.sort(sortSplit[0],
+                    sortSplit[1].equalsIgnoreCase("asc") ? SortOrder.ASC : SortOrder.DESC);
         }
 
         //3. 分页
@@ -299,9 +304,8 @@ public class SearchServiceImpl implements SearchService {
         nestedAggregationBuilder.subAggregation(attrIdAgg);
         searchSourceBuilder.aggregation(nestedAggregationBuilder);
 
-        log.debug("构建的DSL语句 {}",searchSourceBuilder.toString());
+        log.debug("构建的DSL语句 {}", searchSourceBuilder);
 
-        SearchRequest request = new SearchRequest(new String[]{EsConstant.PRODUCT_INDEX}, searchSourceBuilder);
-        return request;
+        return new SearchRequest(new String[]{EsConstant.PRODUCT_INDEX}, searchSourceBuilder);
     }
 }

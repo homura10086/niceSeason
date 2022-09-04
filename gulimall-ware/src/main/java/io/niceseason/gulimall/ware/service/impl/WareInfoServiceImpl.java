@@ -42,12 +42,11 @@ public class WareInfoServiceImpl extends ServiceImpl<WareInfoDao, WareInfoEntity
         FareVo fareVo = new FareVo();
         R info = memberFeignService.info(addrId);
         if (info.getCode() == 0) {
-            MemberAddressVo address = info.getData("memberReceiveAddress", new TypeReference<MemberAddressVo>() {
-            });
+            MemberAddressVo address = info.getData("memberReceiveAddress", new TypeReference<MemberAddressVo>() {});
             fareVo.setAddress(address);
             String phone = address.getPhone();
             //取电话号的最后两位作为邮费
-            String fare = phone.substring(phone.length() - 2, phone.length());
+            String fare = phone.substring(phone.length() - 2);
             fareVo.setFare(new BigDecimal(fare));
         }
         return fareVo;

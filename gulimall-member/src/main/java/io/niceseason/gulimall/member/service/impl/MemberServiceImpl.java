@@ -64,7 +64,8 @@ public class MemberServiceImpl extends ServiceImpl<MemberDao, MemberEntity> impl
         entity.setPassword(encodePassword);
         //3.3 设置会员默认等级
         //3.3.1 找到会员默认登记
-        MemberLevelEntity defaultLevel = memberLevelService.getOne(new QueryWrapper<MemberLevelEntity>().eq("default_status", 1));
+        MemberLevelEntity defaultLevel = memberLevelService.getOne(new QueryWrapper<MemberLevelEntity>().eq(
+                "default_status", 1));
         //3.3.2 设置会员等级为默认
         entity.setLevelId(defaultLevel.getId());
 

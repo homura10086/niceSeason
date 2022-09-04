@@ -4,6 +4,8 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 
+//模型抽取
+// 页面提交数据
 @Data
 public class OrderSubmitVo {
 

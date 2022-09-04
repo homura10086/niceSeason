@@ -41,20 +41,27 @@ public class MemberController {
     private CouponFeignService couponFeignService;
 
 
+//    当数据库中含有以当前登录名为用户名或电话号且密码匹配时，验证通过，返回查询到的实体
+//    否则返回null，并在controller返回用户名或密码错误
     @RequestMapping("/login")
     public R login(@RequestBody MemberLoginVo loginVo) {
-        MemberEntity entity=memberService.login(loginVo);
-        if (entity!=null){
-            return R.ok().put("memberEntity",entity);
+        MemberEntity entity = memberService.login(loginVo);
+        if (entity != null){
+            return R.ok().put("memberEntity", entity);
         }else {
             return R.error(BizCodeEnum.LOGINACCT_PASSWORD_EXCEPTION.getCode(), BizCodeEnum.LOGINACCT_PASSWORD_EXCEPTION.getMsg());
         }
     }
 
+//    登录接口
+//    登录包含两种流程，实际上包括了注册和登录
+//    如果之前未使用该社交账号登录，则使用token调用开放api获取社交账号相关信息，注册并将结果返回
+//    如果之前已经使用该社交账号登录，则更新token并将结果返回
     @RequestMapping("/oauth2/login")
     public R login(@RequestBody SocialUser socialUser) {
-        MemberEntity entity=memberService.login(socialUser);
-        if (entity!=null){
+//        todo：登录
+        MemberEntity entity = memberService.login(socialUser);
+        if (entity != null){
             return R.ok().put("memberEntity",entity);
         }else {
             return R.error();
@@ -65,6 +72,9 @@ public class MemberController {
      * 注册会员
      * @return
      */
+//    通过gulimall-member会员服务注册逻辑
+//    通过异常机制判断当前注册会员名和电话号码是否已经注册，如果已经注册，则抛出对应的自定义异常，并在返回时封装对应的错误信息
+//    如果没有注册，则封装传递过来的会员信息，并设置默认的会员等级、创建时间
     @RequestMapping("/register")
     public R register(@RequestBody MemberRegisterVo registerVo) {
         try {

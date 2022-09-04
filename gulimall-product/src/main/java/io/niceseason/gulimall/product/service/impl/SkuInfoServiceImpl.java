@@ -1,10 +1,16 @@
 package io.niceseason.gulimall.product.service.impl;
 
 import com.alibaba.fastjson.TypeReference;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import io.niceseason.common.utils.PageUtils;
+import io.niceseason.common.utils.Query;
 import io.niceseason.common.utils.R;
+import io.niceseason.gulimall.product.dao.SkuInfoDao;
 import io.niceseason.gulimall.product.entity.SkuImagesEntity;
+import io.niceseason.gulimall.product.entity.SkuInfoEntity;
 import io.niceseason.gulimall.product.entity.SpuInfoDescEntity;
-import io.niceseason.gulimall.product.entity.SpuInfoEntity;
 import io.niceseason.gulimall.product.feign.SeckillFeignService;
 import io.niceseason.gulimall.product.service.*;
 import io.niceseason.gulimall.product.vo.SeckillSkuVo;
@@ -12,7 +18,9 @@ import io.niceseason.gulimall.product.vo.SkuItemSaleAttrVo;
 import io.niceseason.gulimall.product.vo.SkuItemVo;
 import io.niceseason.gulimall.product.vo.SpuItemAttrGroupVo;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -20,16 +28,6 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
-
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import io.niceseason.common.utils.PageUtils;
-import io.niceseason.common.utils.Query;
-
-import io.niceseason.gulimall.product.dao.SkuInfoDao;
-import io.niceseason.gulimall.product.entity.SkuInfoEntity;
-import org.springframework.util.StringUtils;
 
 
 @Service("skuInfoService")
@@ -47,6 +45,7 @@ public class SkuInfoServiceImpl extends ServiceImpl<SkuInfoDao, SkuInfoEntity> i
     @Autowired
     private ProductAttrValueService productAttrValueService;
 
+    @Qualifier("io.niceseason.gulimall.product.feign.SeckillFeignService")
     @Autowired
     private SeckillFeignService seckillFeignService;
 
@@ -107,8 +106,14 @@ public class SkuInfoServiceImpl extends ServiceImpl<SkuInfoDao, SkuInfoEntity> i
         return skus;
     }
 
+    //   使用异步编排
+    //   为了使我们的任务进行的更快，我们可以让查询的各个子任务多线程执行，但是由于各个任务之间可能有相互依赖的关系，因此就涉及到了异步编排。
+    //   在这次查询中spu的销售属性、介绍、规格参数信息都需要spuId,因此依赖sku基本信息的获取,所以我们要让这些任务在1之后运行。
+    //   因为我们需要1运行的结果，因此调用thenAcceptAsync()可以接受上一步的结果且没有返回值。
+    //   最后时，我们需要调用get()方法使得所有方法都已经执行完成
     @Override
     public SkuItemVo item(Long skuId) {
+        // todo：异步编排
         SkuItemVo skuItemVo = new SkuItemVo();
         CompletableFuture<SkuInfoEntity> infoFuture = CompletableFuture.supplyAsync(() -> {
             //1、sku基本信息的获取  pms_sku_info
@@ -119,7 +124,8 @@ public class SkuInfoServiceImpl extends ServiceImpl<SkuInfoDao, SkuInfoEntity> i
 
         //2、sku的图片信息    pms_sku_images
         CompletableFuture<Void> imageFuture = CompletableFuture.runAsync(() -> {
-            List<SkuImagesEntity> skuImagesEntities = skuImagesService.list(new QueryWrapper<SkuImagesEntity>().eq("sku_id", skuId));
+            List<SkuImagesEntity> skuImagesEntities = skuImagesService.list(new QueryWrapper<SkuImagesEntity>().eq(
+                    "sku_id", skuId));
             skuItemVo.setImages(skuImagesEntities);
         }, executor);
 
@@ -161,9 +167,7 @@ public class SkuInfoServiceImpl extends ServiceImpl<SkuInfoDao, SkuInfoEntity> i
         //等待所有任务执行完成
         try {
             CompletableFuture.allOf(imageFuture, saleFuture, descFuture, attrFuture,seckFuture).get();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        } catch (ExecutionException e) {
+        } catch (InterruptedException | ExecutionException e) {
             e.printStackTrace();
         }
 

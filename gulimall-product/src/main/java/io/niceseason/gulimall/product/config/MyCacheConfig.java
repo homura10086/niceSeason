@@ -4,18 +4,18 @@ import org.springframework.boot.autoconfigure.cache.CacheProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
-import org.springframework.data.redis.serializer.JdkSerializationRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
-import sun.misc.Cache;
 
+//默认使用jdk进行序列化，自定义序列化方式需要编写配置类
 @Configuration
 public class MyCacheConfig {
     @Bean
     public org.springframework.data.redis.cache.RedisCacheConfiguration redisCacheConfiguration(
             CacheProperties cacheProperties) {
         CacheProperties.Redis redisProperties = cacheProperties.getRedis();
-        org.springframework.data.redis.cache.RedisCacheConfiguration config = org.springframework.data.redis.cache.RedisCacheConfiguration
-                .defaultCacheConfig();
+        org.springframework.data.redis.cache.RedisCacheConfiguration config =
+                org.springframework.data.redis.cache.RedisCacheConfiguration.defaultCacheConfig();
+        //指定缓存序列化方式为json
         config = config.serializeValuesWith(
                 RedisSerializationContext.SerializationPair.fromSerializer(new GenericJackson2JsonRedisSerializer()));
         if (redisProperties.getTimeToLive() != null) {

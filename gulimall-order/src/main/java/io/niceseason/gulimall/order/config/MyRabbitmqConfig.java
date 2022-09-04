@@ -6,6 +6,8 @@ import org.springframework.context.annotation.Configuration;
 
 import java.util.HashMap;
 
+//创建业务交换机和队列
+//订单模块
 @Configuration
 public class MyRabbitmqConfig {
     @Bean
@@ -49,9 +51,7 @@ public class MyRabbitmqConfig {
     @Bean
     public Queue orderReleaseQueue() {
 
-        Queue queue = new Queue("order.release.order.queue", true, false, false);
-
-        return queue;
+        return new Queue("order.release.order.queue", true, false, false);
     }
 
     /**
@@ -67,7 +67,8 @@ public class MyRabbitmqConfig {
          * String routingKey,
          * Map<String, Object> arguments
          * */
-        return new Binding("order.delay.queue", Binding.DestinationType.QUEUE, "order-event-exchange", "order.create.order", null);
+        return new Binding("order.delay.queue", Binding.DestinationType.QUEUE,
+                "order-event-exchange", "order.create.order", null);
     }
 
     @Bean
@@ -92,23 +93,23 @@ public class MyRabbitmqConfig {
      * 商品秒杀队列
      * @return
      */
+//    创建订单
+//    创建秒杀所需队列
     @Bean
     public Queue orderSecKillOrrderQueue() {
-        Queue queue = new Queue("order.seckill.order.queue", true, false, false);
-        return queue;
+        return new Queue("order.seckill.order.queue", true, false, false);
     }
 
     @Bean
     public Binding orderSecKillOrrderQueueBinding() {
         //String destination, DestinationType destinationType, String exchange, String routingKey,
         // 			Map<String, Object> arguments
-        Binding binding = new Binding(
+
+        return new Binding(
                 "order.seckill.order.queue",
                 Binding.DestinationType.QUEUE,
                 "order-event-exchange",
                 "order.seckill.order",
                 null);
-
-        return binding;
     }
 }

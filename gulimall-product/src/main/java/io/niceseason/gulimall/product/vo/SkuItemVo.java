@@ -11,6 +11,8 @@ import java.util.List;
 
 
 
+//模型抽取
+//包括sku基本信息，图片信息，销售属性，图片介绍和规格参数
 @ToString
 @Data
 public class SkuItemVo {

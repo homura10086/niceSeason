@@ -7,6 +7,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
+//跳转到确认页时需要携带的数据模型
 public class OrderConfirmVo {
 
     @Getter
@@ -28,7 +29,8 @@ public class OrderConfirmVo {
     private String orderToken;
 
     @Getter @Setter
-    Map<Long,Boolean> stocks;
+    Map<Long, Boolean> stocks;
+
 
     public Integer getCount() {
         Integer count = 0;

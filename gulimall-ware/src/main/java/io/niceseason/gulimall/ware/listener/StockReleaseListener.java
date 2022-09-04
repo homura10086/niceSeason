@@ -13,6 +13,9 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 
+//监听队列
+// 延迟队列会将过期的消息路由至"stock.release.stock.queue",通过监听该队列实现库存的解锁
+// 为保证消息的可靠到达，我们使用手动确认消息的模式，在解锁成功后确认消息，若出现异常则重新归队
 @Slf4j
 @Component
 @RabbitListener(queues = {"stock.release.stock.queue"})

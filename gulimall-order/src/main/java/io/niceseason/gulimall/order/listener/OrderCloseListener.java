@@ -11,6 +11,8 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 
+//监听队列
+//创建订单的消息会进入延迟队列，最终发送至队列order.release.order.queue，因此我们对该队列进行监听，进行订单的关闭
 @Component
 @RabbitListener(queues = {"order.release.order.queue"})
 public class OrderCloseListener {

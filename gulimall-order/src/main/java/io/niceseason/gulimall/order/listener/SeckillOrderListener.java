@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 
+//监听队列
 @Component
 @RabbitListener(queues = "order.seckill.order.queue")
 public class SeckillOrderListener {

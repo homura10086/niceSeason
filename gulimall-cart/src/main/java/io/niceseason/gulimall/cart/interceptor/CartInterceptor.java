@@ -4,6 +4,7 @@ import io.niceseason.common.constant.AuthServerConstant;
 import io.niceseason.common.constant.CartConstant;
 import io.niceseason.common.vo.MemberResponseVo;
 import io.niceseason.gulimall.cart.to.UserInfoTo;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.util.StringUtils;
 import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.web.servlet.ModelAndView;
@@ -16,15 +17,16 @@ import java.util.UUID;
 
 public class CartInterceptor implements HandlerInterceptor {
 
-    public static ThreadLocal<UserInfoTo> threadLocal=new ThreadLocal<>();
+    public static ThreadLocal<UserInfoTo> threadLocal = new ThreadLocal<>();
 
     @Override
-    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+    public boolean preHandle(@NotNull HttpServletRequest request,
+                             @NotNull HttpServletResponse response, @NotNull Object handler) {
         HttpSession session = request.getSession();
         MemberResponseVo memberResponseVo = (MemberResponseVo) session.getAttribute(AuthServerConstant.LOGIN_USER);
         UserInfoTo userInfoTo = new UserInfoTo();
         //1 用户已经登录，设置userId
-        if (memberResponseVo!=null){
+        if (memberResponseVo != null){
             userInfoTo.setUserId(memberResponseVo.getId());
         }
 
@@ -50,7 +52,9 @@ public class CartInterceptor implements HandlerInterceptor {
     }
 
     @Override
-    public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler, ModelAndView modelAndView) throws Exception {
+    public void postHandle(@NotNull HttpServletRequest request,
+                           @NotNull HttpServletResponse response,
+                           @NotNull Object handler, ModelAndView modelAndView) {
         UserInfoTo userInfoTo = threadLocal.get();
         //如果浏览器中没有user-key，我们为其生成
         if (!userInfoTo.getTempUser()) {

@@ -42,10 +42,12 @@ public class WareSkuController {
      * @param itemVos
      * @return
      */
+//    找出所有库存大于商品数的仓库
+//    遍历所有满足条件的仓库，逐个尝试锁库存，若锁库存成功则退出遍历
     @RequestMapping("/lock/order")
     public R orderLockStock(@RequestBody WareSkuLockVo lockVo) {
         try {
-            Boolean lock = wareSkuService.orderLockStock(lockVo);
+            wareSkuService.orderLockStock(lockVo);
             return R.ok();
         } catch (NoStockException e) {
             return R.error(BizCodeEnum.NO_STOCK_EXCEPTION.getCode(), BizCodeEnum.NO_STOCK_EXCEPTION.getMsg());

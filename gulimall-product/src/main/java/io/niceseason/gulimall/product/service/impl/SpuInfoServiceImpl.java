@@ -218,20 +218,20 @@ public class SpuInfoServiceImpl extends ServiceImpl<SpuInfoDao, SpuInfoEntity> i
         return new PageUtils(page);
     }
 
+    //    由于每个spu对应的各个sku的规格参数相同，因此我们要将查询规格参数提前，只查询一次
     @Override
     public void upSpuForSearch(Long spuId) {
         //1、查出当前spuId对应的所有sku信息,品牌的名字
-        List<SkuInfoEntity> skuInfoEntities=skuInfoService.getSkusBySpuId(spuId);
+        List<SkuInfoEntity> skuInfoEntities = skuInfoService.getSkusBySpuId(spuId);
         //TODO 4、查出当前sku的所有可以被用来检索的规格属性
-        List<ProductAttrValueEntity> productAttrValueEntities = productAttrValueService.list(new QueryWrapper<ProductAttrValueEntity>().eq("spu_id", spuId));
-        List<Long> attrIds = productAttrValueEntities.stream().map(attr -> {
-            return attr.getAttrId();
-        }).collect(Collectors.toList());
-        List<Long> searchIds=attrService.selectSearchAttrIds(attrIds);
+        List<ProductAttrValueEntity> productAttrValueEntities =
+                productAttrValueService.list(new QueryWrapper<ProductAttrValueEntity>().eq("spu_id", spuId));
+        List<Long> attrIds = productAttrValueEntities.stream().map(
+                ProductAttrValueEntity::getAttrId).collect(Collectors.toList());
+        List<Long> searchIds = attrService.selectSearchAttrIds(attrIds);
         Set<Long> ids = new HashSet<>(searchIds);
-        List<SkuEsModel.Attr> searchAttrs = productAttrValueEntities.stream().filter(entity -> {
-            return ids.contains(entity.getAttrId());
-        }).map(entity -> {
+        List<SkuEsModel.Attr> searchAttrs = productAttrValueEntities.stream().filter(
+                entity -> ids.contains(entity.getAttrId())).map(entity -> {
             SkuEsModel.Attr attr = new SkuEsModel.Attr();
             BeanUtils.copyProperties(entity, attr);
             return attr;
@@ -266,13 +266,13 @@ public class SpuInfoServiceImpl extends ServiceImpl<SpuInfoDao, SpuInfoEntity> i
             //设置可搜索属性
             skuEsModel.setAttrs(searchAttrs);
             //设置是否有库存
-            skuEsModel.setHasStock(finalStockMap==null?false:finalStockMap.get(sku.getSkuId()));
+            skuEsModel.setHasStock(finalStockMap != null && finalStockMap.get(sku.getSkuId()));
             return skuEsModel;
         }).collect(Collectors.toList());
 
         //TODO 5、将数据发给es进行保存：gulimall-search
         R r = searchFeignService.saveProductAsIndices(skuEsModels);
-        if (r.getCode()==0){
+        if (r.getCode() == 0){
             this.baseMapper.upSpuStatus(spuId, ProductConstant.ProductStatusEnum.SPU_UP.getCode());
         }else {
             log.error("商品远程es保存失败");

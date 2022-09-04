@@ -2,7 +2,6 @@ package io.niceseason.gulimall.order.web;
 
 import io.niceseason.common.exception.NoStockException;
 import io.niceseason.common.utils.PageUtils;
-import io.niceseason.common.utils.R;
 import io.niceseason.gulimall.order.service.OrderService;
 import io.niceseason.gulimall.order.vo.OrderConfirmVo;
 import io.niceseason.gulimall.order.vo.OrderSubmitVo;
@@ -29,6 +28,9 @@ public class OrderWebController {
         return page;
     }
 
+//    数据获取
+//    查询购物项、库存和收货地址都要调用远程服务，串行会浪费大量时间，因此我们使用CompletableFuture进行异步编排
+//    可能由于延迟，订单提交按钮可能被点击多次，为了防止重复提交的问题，我们在返回订单确认页时，在redis中生成一个随机的令牌，过期时间为30min，提交的订单会携带这个令牌，我们将会在订单提交的处理页面核验此令牌
     @RequestMapping("/toTrade")
     public String toTrade(Model model) {
         OrderConfirmVo confirmVo = orderService.confirmOrder();
@@ -36,12 +38,15 @@ public class OrderWebController {
         return "confirm";
     }
 
+//    提交订单
+//    提交订单成功，则携带返回数据转发至支付页面
+//    提交订单失败，则携带错误信息重定向至确认页
     @RequestMapping("/submitOrder")
     public String submitOrder(OrderSubmitVo submitVo, Model model, RedirectAttributes attributes) {
         try{
-            SubmitOrderResponseVo responseVo=orderService.submitOrder(submitVo);
+            SubmitOrderResponseVo responseVo = orderService.submitOrder(submitVo);
             Integer code = responseVo.getCode();
-            if (code==0){
+            if (code == 0){
                 model.addAttribute("order", responseVo.getOrder());
                 return "pay";
             }else {
@@ -71,12 +76,14 @@ public class OrderWebController {
      * @return
      */
     @RequestMapping("/memberOrder.html")
-    public String memberOrder(@RequestParam(value = "pageNum",required = false,defaultValue = "0") Integer pageNum,
+    public String memberOrder(@RequestParam(value = "pageNum", required = false, defaultValue = "0") Integer pageNum,
                          Model model){
         Map<String, Object> params = new HashMap<>();
         params.put("page", pageNum.toString());
+        //分页查询当前用户的所有订单及对应订单项
         PageUtils page = orderService.getMemberOrderPage(params);
         model.addAttribute("pageUtil", page);
+        //返回至订单详情页
         return "list";
     }
 

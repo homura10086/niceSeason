@@ -26,6 +26,7 @@ import org.springframework.stereotype.Service;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
@@ -93,16 +94,20 @@ public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> i
 
     @Override
     public List<SkuHasStockVo> getSkuHasStocks(List<Long> ids) {
-        List<SkuHasStockVo> skuHasStockVos = ids.stream().map(id -> {
+        return ids.stream().map(id -> {
             SkuHasStockVo skuHasStockVo = new SkuHasStockVo();
             skuHasStockVo.setSkuId(id);
             Integer count = baseMapper.getTotalStock(id);
-            skuHasStockVo.setHasStock(count==null?false:count>0);
+            skuHasStockVo.setHasStock(count != null && count > 0);
             return skuHasStockVo;
         }).collect(Collectors.toList());
-        return skuHasStockVos;
     }
 
+//    库存锁定
+//    在库存锁定添加以下逻辑
+//    由于可能订单回滚的情况，所以为了能够得到库存锁定的信息，在锁定时需要记录库存工作单，
+//    其中包括订单信息和锁定库存时的信息(仓库id，商品id，锁了几件...)
+//    在锁定成功后，向延迟队列发消息，带上库存锁定的相关信息
     @Transactional
     @Override
     public Boolean orderLockStock(WareSkuLockVo wareSkuLockVo) {
@@ -133,9 +138,9 @@ public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> i
                 throw new NoStockException(skuId);
             }else {
                 for (Long wareId : wareIds) {
-                    Long count=baseMapper.lockWareSku(skuId, lockVo.getNum(), wareId);
+                    Long count = baseMapper.lockWareSku(skuId, lockVo.getNum(), wareId);
                     if (count==0){
-                        lock=false;
+                        lock = false;
                     }else {
                         //锁定成功，保存工作单详情
                         WareOrderTaskDetailEntity detailEntity = WareOrderTaskDetailEntity.builder()
@@ -172,6 +177,11 @@ public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> i
      * 消息队列解锁库存
      * @param stockLockedTo
      */
+//    库存解锁
+//    如果工作单详情不为空，说明该库存锁定成功
+//    查询最新的订单状态，如果订单不存在，说明订单提交出现异常回滚，或者订单处于已取消的状态，我们都对已锁定的库存进行解锁
+//    如果工作单详情为空，说明库存未锁定，自然无需解锁
+//    为保证幂等性，我们分别对订单的状态和工作单的状态都进行了判断，只有当订单过期且工作单显示当前库存处于锁定的状态时，才进行库存的解锁
     @Override
     public void unlock(StockLockedTo stockLockedTo) {
         StockDetailTo detailTo = stockLockedTo.getDetailTo();
@@ -184,29 +194,32 @@ public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> i
                 OrderTo order = r.getData("order", new TypeReference<OrderTo>() {
                 });
                 //没有这个订单||订单状态已经取消 解锁库存
-                if (order == null||order.getStatus()== OrderStatusEnum.CANCLED.getCode()) {
+                if (order == null || Objects.equals(order.getStatus(), OrderStatusEnum.CANCLED.getCode())) {
                     //为保证幂等性，只有当工作单详情处于被锁定的情况下才进行解锁
-                    if (detailEntity.getLockStatus()== WareTaskStatusEnum.Locked.getCode()){
+                    if (Objects.equals(detailEntity.getLockStatus(), WareTaskStatusEnum.Locked.getCode())){
                         unlockStock(detailTo.getSkuId(), detailTo.getSkuNum(), detailTo.getWareId(), detailEntity.getId());
                     }
                 }
             }else {
                 throw new RuntimeException("远程调用订单服务失败");
             }
-        }else {
-            //无需解锁
         }
+        //无需解锁
+
     }
 
     @Override
     public void unlock(OrderTo orderTo) {
         //为防止重复解锁，需要重新查询工作单
         String orderSn = orderTo.getOrderSn();
-        WareOrderTaskEntity taskEntity = wareOrderTaskService.getBaseMapper().selectOne((new QueryWrapper<WareOrderTaskEntity>().eq("order_sn", orderSn)));
+        WareOrderTaskEntity taskEntity = wareOrderTaskService.getBaseMapper().selectOne(
+                (new QueryWrapper<WareOrderTaskEntity>().eq("order_sn", orderSn)));
         //查询出当前订单相关的且处于锁定状态的工作单详情
-        List<WareOrderTaskDetailEntity> lockDetails = wareOrderTaskDetailService.list(new QueryWrapper<WareOrderTaskDetailEntity>().eq("task_id", taskEntity.getId()).eq("lock_status", WareTaskStatusEnum.Locked.getCode()));
+        List<WareOrderTaskDetailEntity> lockDetails = wareOrderTaskDetailService.list(
+                new QueryWrapper<WareOrderTaskDetailEntity>().eq("task_id", taskEntity.getId()).eq(
+                        "lock_status", WareTaskStatusEnum.Locked.getCode()));
         for (WareOrderTaskDetailEntity lockDetail : lockDetails) {
-            unlockStock(lockDetail.getSkuId(),lockDetail.getSkuNum(),lockDetail.getWareId(),lockDetail.getId());
+            unlockStock(lockDetail.getSkuId(), lockDetail.getSkuNum(), lockDetail.getWareId(), lockDetail.getId());
         }
     }
 

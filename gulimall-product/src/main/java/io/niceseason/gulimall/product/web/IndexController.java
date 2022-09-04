@@ -6,8 +6,8 @@ import io.niceseason.gulimall.product.feign.SeckillFeignService;
 import io.niceseason.gulimall.product.service.CategoryService;
 import io.niceseason.gulimall.product.vo.Catalog2Vo;
 import org.redisson.api.*;
-import org.redisson.client.RedisClient;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -30,9 +30,11 @@ public class IndexController {
     @Autowired
     private StringRedisTemplate redisTemplate;
 
+    @Qualifier("io.niceseason.gulimall.product.feign.SeckillFeignService")
     @Autowired
     private SeckillFeignService seckillFeignService;
 
+    //由于访问首页时就要加载一级目录,所以我们需要在加载首页时获取该数据
     @GetMapping({"/", "index.html"})
     public String getIndex(Model model) {
         //获取所有的一级分类
@@ -41,15 +43,18 @@ public class IndexController {
         return "index";
     }
 
+    // 渲染三级分类菜单
     @GetMapping("index/json/catalog.json")
     @ResponseBody
     public Map<String, List<Catalog2Vo>> getCategoryMap() {
         return categoryService.getCatalogJsonDbWithSpringCache();
     }
 
+    //  读写锁（ReadWriteLock）
+    //  含有写的过程都会被阻塞，只有读读不会被阻塞
     @GetMapping("/read")
     @ResponseBody
-    public String read() {
+    public String read() throws InterruptedException {
         RReadWriteLock lock = redissonClient.getReadWriteLock("ReadWrite-Lock");
         RLock rLock = lock.readLock();
         String s = "";
@@ -57,11 +62,11 @@ public class IndexController {
             rLock.lock();
             System.out.println("读锁加锁"+Thread.currentThread().getId());
             Thread.sleep(5000);
-            s= redisTemplate.opsForValue().get("lock-value");
+            s = redisTemplate.opsForValue().get("lock-value");
         }finally {
             rLock.unlock();
-            return "读取完成:"+s;
         }
+        return "读取完成:" + s;
     }
 
     @GetMapping("/write")
@@ -83,6 +88,9 @@ public class IndexController {
         }
     }
 
+    //  信号量（Semaphore）
+    //  信号量为存储在redis中的一个数字，当这个数字大于0时，即可以调用acquire()方法增加数量，也可以调用release()方法减少数量，
+    //  但是当调用release()之后小于0的话方法就会阻塞，直到数字大于0
     @GetMapping("/park")
     @ResponseBody
     public String park() {
@@ -103,6 +111,9 @@ public class IndexController {
         return "开走2";
     }
 
+    //   闭锁（CountDownLatch）
+    //   可以理解为门栓，使用若干个门栓将当前方法阻塞，只有当全部门栓都被放开时，当前方法才能继续执行。
+    //   以下代码只有offLatch()被调用5次后 setLatch()才能继续执行
     @GetMapping("/setLatch")
     @ResponseBody
     public String setLatch() {

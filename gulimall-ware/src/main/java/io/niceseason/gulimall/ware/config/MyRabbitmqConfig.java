@@ -12,6 +12,7 @@ import org.springframework.context.annotation.Configuration;
 
 import java.util.HashMap;
 
+//库存模块
 @EnableRabbit
 @Configuration
 public class MyRabbitmqConfig {

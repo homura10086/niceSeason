@@ -4,6 +4,7 @@ import lombok.Data;
 
 import java.util.List;
 
+//请求参数的封装
 @Data
 public class SearchParam {
 

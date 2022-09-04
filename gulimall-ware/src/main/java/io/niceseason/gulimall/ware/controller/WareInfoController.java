@@ -32,6 +32,7 @@ public class WareInfoController {
     private WareInfoService wareInfoService;
 
 
+//    在页面将选中地址的id传给请求
     @RequestMapping("/fare/{addrId}")
     public FareVo getFare(@PathVariable("addrId") Long addrId) {
         return wareInfoService.getFare(addrId);

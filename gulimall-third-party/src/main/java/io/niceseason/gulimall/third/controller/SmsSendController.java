@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import javax.annotation.Resource;
 
+//编写controller，给别的服务提供远程调用发送验证码的接口
 @Controller
 @RequestMapping(value = "/sms")
 public class SmsSendController {

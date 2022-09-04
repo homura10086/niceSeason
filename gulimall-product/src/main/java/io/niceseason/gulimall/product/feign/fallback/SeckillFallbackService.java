@@ -5,6 +5,7 @@ import io.niceseason.common.utils.R;
 import io.niceseason.gulimall.product.feign.SeckillFeignService;
 import org.springframework.stereotype.Component;
 
+//在降级类中实现对应的feign接口,并重写降级方法
 @Component
 public class SeckillFallbackService implements SeckillFeignService {
     @Override

@@ -34,7 +34,7 @@ public class SeckillSessionController {
 
     @RequestMapping("/getSeckillSessionsIn3Days")
     public R getSeckillSessionsIn3Days() {
-        List<SeckillSessionEntity> seckillSessionEntities=seckillSessionService.getSeckillSessionsIn3Days();
+        List<SeckillSessionEntity> seckillSessionEntities = seckillSessionService.getSeckillSessionsIn3Days();
         return R.ok().setData(seckillSessionEntities);
     }
 

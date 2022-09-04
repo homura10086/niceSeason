@@ -5,6 +5,7 @@ import io.niceseason.common.to.es.SkuEsModel;
 import io.niceseason.gulimall.search.config.GulimallElasticSearchConfig;
 import io.niceseason.gulimall.search.service.ProductSaveService;
 import lombok.extern.slf4j.Slf4j;
+import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.index.IndexRequest;
@@ -37,9 +38,8 @@ public class ProductSaveServiceimpl implements ProductSaveService {
         }
         BulkResponse bulkResponse = restHighLevelClient.bulk(bulkRequest, GulimallElasticSearchConfig.COMMON_OPTIONS);
         boolean hasFailures = bulkResponse.hasFailures();
-        List<String> collect = Arrays.asList(bulkResponse.getItems()).stream().map(item -> {
-            return item.getId();
-        }).collect(Collectors.toList());
+        List<String> collect = Arrays.stream(bulkResponse.getItems()).map(
+                BulkItemResponse::getId).collect(Collectors.toList());
 
         log.info("商品上架完成：{}",collect);
 

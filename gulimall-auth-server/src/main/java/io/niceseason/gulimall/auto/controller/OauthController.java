@@ -11,22 +11,27 @@ import io.niceseason.gulimall.auto.vo.SocialUser;
 import org.apache.http.HttpResponse;
 import org.apache.http.util.EntityUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import javax.servlet.http.HttpSession;
 import java.util.HashMap;
 import java.util.Map;
 
+//  认证接口
+//  通过HttpUtils发送请求获取token,并将token等信息交给member服务进行社交登录
+//  若获取token失败或远程调用服务失败，则封装错误信息重新转回登录页
 @Controller
 public class OauthController {
 
+    @Qualifier("io.niceseason.gulimall.auto.feign.MemberFeignService")
     @Autowired
     private MemberFeignService memberFeignService;
 
     @RequestMapping("/oauth2.0/weibo/success")
     public String authorize(String code, HttpSession session) throws Exception {
+//        todo:认证
         //1. 使用code换取token，换取成功则继续2，否则重定向至登录页
         Map<String, String> query = new HashMap<>();
         query.put("client_id", "2144471074");
@@ -35,7 +40,9 @@ public class OauthController {
         query.put("redirect_uri", "http://auth.gulimall.com/oauth2.0/weibo/success");
         query.put("code", code);
         //发送post请求换取token
-        HttpResponse response = HttpUtils.doPost("https://api.weibo.com", "/oauth2/access_token", "post", new HashMap<String, String>(), query, new HashMap<String, String>());
+        HttpResponse response = HttpUtils.doPost(
+                "https://api.weibo.com", "/oauth2/access_token",
+                "post", new HashMap<>(), query, new HashMap<>());
         Map<String, String> errors = new HashMap<>();
         if (response.getStatusLine().getStatusCode() == 200) {
             //2. 调用member远程接口进行oauth登录，登录成功则转发至首页并携带返回用户信息，否则转发至登录页

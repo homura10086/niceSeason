@@ -5,6 +5,7 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 
+//用来存储的to
 @Data
 public class SeckillSkuRedisTo {
     private Long id;

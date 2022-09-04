@@ -24,7 +24,7 @@ public class ElasticSaveController {
     public R saveProductAsIndices(@RequestBody List<SkuEsModel> skuEsModels) {
         boolean status = false;
         try {
-            status=productSaveService.saveProductAsIndices(skuEsModels);
+            status = productSaveService.saveProductAsIndices(skuEsModels);
         } catch (Exception e) {
             log.error("远程保存索引失败");
         }
